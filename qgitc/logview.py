@@ -612,8 +612,13 @@ class LogView(QAbstractScrollArea):
 
     def showLogs(self, branch, args=None):
         self.curBranch = branch
-        self.fetcher.fetch(branch, args)
+        #self.fetcher.fetch(branch, args)
         self.beginFetch.emit()
+
+        # TODO: pattern
+        commits = Git.branchLogs(branch, None)
+        self.__onLogsAvailable(commits)
+        self.__onFetchFinished()
 
         if self.checkThread:
             self.checkThread.terminate()
@@ -877,6 +882,10 @@ class LogView(QAbstractScrollArea):
             lcc_cmit.parents = [parent_sha1] if parent_sha1 else []
             lcc_cmit.children = [Git.LUC_SHA1] if hasLUC else []
 
+            if self.data[0].children is not None and \
+                    lcc_cmit.sha1 not in self.data[0].children:
+                self.data[0].children.append(lcc_cmit.sha1)
+
             self.data.insert(0, lcc_cmit)
             parent_sha1 = lcc_cmit.sha1
             self.delayUpdateParents = len(lcc_cmit.parents) == 0
@@ -888,6 +897,10 @@ class LogView(QAbstractScrollArea):
                 "Local uncommitted changes, not checked in to index")
             luc_cmit.parents = [parent_sha1] if parent_sha1 else []
             luc_cmit.children = []
+
+            if self.data[0].children is not None and \
+                    luc_cmit.sha1 not in self.data[0].children:
+                self.data[0].children.append(luc_cmit.sha1)
 
             self.data.insert(0, luc_cmit)
             self.delayUpdateParents = self.delayUpdateParents or len(

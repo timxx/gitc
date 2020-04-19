@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 
 from collections import defaultdict
+from pygit2 import Repository
+from pygit2 import GIT_SORT_TOPOLOGICAL
 
 import subprocess
 import os
 import bisect
 import re
 
-from .common import log_fmt
+from .common import log_fmt, Commit
 
 
 class GitProcess():
@@ -178,33 +180,21 @@ class Git():
 
     @staticmethod
     def branches():
-        args = ["branch", "-a"]
-        data = Git.checkOutput(args)
-        if not data:
-            return None
-
-        return data.decode("utf-8").split('\n')
+        repo = Repository(Git.REPO_DIR)
+        cur_branch = repo.head.shorthand
+        return list(repo.branches), cur_branch
 
     @staticmethod
     def branchLogs(branch, pattern=None):
-        args = ["log", "-z", "--topo-order",
-                "--parents",
-                "--no-color",
-                "--pretty=format:{0}".format(log_fmt),
-                branch]
-        if pattern:
-            # FIXME: pass "--" from caller
-            if not pattern.startswith("-"):
-                args.append("--")
-            args.append(pattern)
-        else:
-            args.append("--boundary")
+        repo = Repository(Git.REPO_DIR)
+        commits = []
 
-        data = Git.checkOutput(args)
-        if not data:
-            return None
+        for commit in repo.walk(
+                repo.branches[branch].target,
+                GIT_SORT_TOPOLOGICAL):
+            commits.append(Commit.fromRawCommit(commit))
 
-        return data.decode("utf-8", "replace").split('\0')
+        return commits
 
     @staticmethod
     def commitSummary(sha1):

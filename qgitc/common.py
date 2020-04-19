@@ -6,6 +6,8 @@ import io
 import os
 import sys
 
+from datetime import datetime, timezone, timedelta
+
 
 log_fmt = "%H%x01%B%x01%an <%ae>%x01%ai%x01%cn <%ce>%x01%ci%x01%P"
 html_escape_table = {
@@ -54,6 +56,31 @@ class Commit():
         commit.committer = parts[4]
         commit.committerDate = parts[5]
         commit.parents = [x for x in parts[6].split(" ") if x]
+
+        return commit
+
+    @classmethod
+    def fromRawCommit(cls, rawCommit):
+        """ Convert from pygit2's comit """
+        commit = cls()
+
+        def timeStr(signature):
+            tzinfo = timezone(timedelta(minutes=signature.offset))
+            dt = datetime.fromtimestamp(float(signature.time), tzinfo)
+            return dt.strftime('%x %X %z')
+
+        def authorStr(author):
+            return author.name + " <" + author.email + ">"
+
+        commit.sha1 = rawCommit.id.hex
+        commit.comments = rawCommit.message.rstrip()
+        commit.author = authorStr(rawCommit.author)
+        commit.authorDate = timeStr(rawCommit.author)
+        commit.committer = authorStr(rawCommit.committer)
+        commit.committerDate = timeStr(rawCommit.committer)
+        commit.parents = []
+        for id in rawCommit.parent_ids:
+            commit.parents.append(id.hex)
 
         return commit
 

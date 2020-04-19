@@ -136,7 +136,7 @@ class GitView(QWidget):
         if not Git.REPO_DIR:
             return
 
-        branches = Git.branches()
+        branches, cur_branch = Git.branches()
         if not branches:
             self.window().showMessage(self.tr("Can't get branch"))
             return
@@ -145,22 +145,18 @@ class GitView(QWidget):
         self.ui.cbBranch.blockSignals(True)
 
         for branch in branches:
-            branch = branch.strip()
-            if branch.startswith("remotes/origin/"):
-                if not branch.startswith("remotes/origin/HEAD"):
+            if branch.startswith("origin/"):
+                if not branch.startswith("origin/HEAD"):
                     self.ui.cbBranch.addItem(branch)
                     if activeBranch and activeBranch == branch:
                         curBranchIdx = self.ui.cbBranch.count() - 1
             elif branch:
-                if branch.startswith("*"):
-                    pure_branch = branch.replace("*", "").strip()
-                    self.ui.cbBranch.addItem(pure_branch)
-                    if curBranchIdx == -1 and (not activeBranch or activeBranch == pure_branch):
+                if branch == cur_branch:
+                    self.ui.cbBranch.addItem(branch)
+                    if curBranchIdx == -1 and (not activeBranch or activeBranch == cur_branch):
                         curBranchIdx = self.ui.cbBranch.count() - 1
                 else:
-                    if branch.startswith("+ "):
-                        branch = branch[2:]
-                    self.ui.cbBranch.addItem(branch.strip())
+                    self.ui.cbBranch.addItem(branch)
 
         if curBranchIdx != -1:
             self.ui.cbBranch.setCurrentIndex(curBranchIdx)
