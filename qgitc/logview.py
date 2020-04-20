@@ -4,6 +4,9 @@ from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 from PySide2.QtCore import *
 
+from pygit2 import Repository
+from pygit2 import GIT_SORT_TOPOLOGICAL
+
 from .common import *
 from .gitutils import *
 from .datafetcher import DataFetcher
@@ -32,39 +35,54 @@ GRAPH_COLORS = [Qt.black,
 HALF_LINE_PERCENT = 0.76
 
 
-class LogsFetcher(DataFetcher):
+class LogsFetcher(QThread):
 
     logsAvailable = Signal(list)
+    fetchFinished = Signal()
 
     def __init__(self, parent=None):
-        super(LogsFetcher, self).__init__(parent)
-        self.separator = b'\0'
+        super().__init__(parent)
 
-    def parse(self, data):
-        logs = data.rstrip(self.separator) \
-            .decode("utf-8", "replace") \
-            .split('\0')
-        commits = [Commit.fromRawString(log) for log in logs]
-        self.logsAvailable.emit(commits)
+    def cancel(self):
+        if self.isRunning():
+            self.requesetInterruption()
 
-    def makeArgs(self, args):
-        branch = args[0]
-        logArgs = args[1]
+    def fetch(self, branch, args=None):
+        self.cancel()
 
-        git_args = ["log", "-z", "--topo-order",
-                    "--parents",
-                    "--no-color",
-                    "--pretty=format:{0}".format(log_fmt),
-                    branch]
-        if logArgs:
-            git_args.extend(logArgs)
-        else:
-            git_args.append("--boundary")
-
-        return git_args
+        self._repo_dir = Git.REPO_DIR
+        self._branch = branch
+        self._args = args
+        self.start()
 
     def isLoading(self):
-        return self.process is not None
+        return self.isRunning()
+
+    def run(self):
+        # profile = MyProfile()
+        repo = Repository(self._repo_dir)
+
+        # TODO: support args
+        commits = []
+
+        # TODO: it seems that repo.walk can cause GUI hangs, why???
+        for commit in repo.walk(
+                repo.branches[self._branch].target,
+                GIT_SORT_TOPOLOGICAL):
+
+            if self.isInterruptionRequested():
+                return
+            commits.append(Commit.fromRawCommit(commit))
+            # split the commits to emit
+            if len(commits) == 500:
+                self.logsAvailable.emit(commits)
+                commits.clear()
+
+        # profile = None
+        if len(commits):
+            self.logsAvailable.emit(commits)
+
+        self.fetchFinished.emit()
 
 
 class Marker():
@@ -612,13 +630,8 @@ class LogView(QAbstractScrollArea):
 
     def showLogs(self, branch, args=None):
         self.curBranch = branch
-        #self.fetcher.fetch(branch, args)
+        self.fetcher.fetch(branch, args)
         self.beginFetch.emit()
-
-        # TODO: pattern
-        commits = Git.branchLogs(branch, None)
-        self.__onLogsAvailable(commits)
-        self.__onFetchFinished()
 
         if self.checkThread:
             self.checkThread.terminate()
