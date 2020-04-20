@@ -45,7 +45,7 @@ class LogsFetcher(QThread):
 
     def cancel(self):
         if self.isRunning():
-            self.requesetInterruption()
+            self.requestInterruption()
 
     def fetch(self, branch, args=None):
         self.cancel()
