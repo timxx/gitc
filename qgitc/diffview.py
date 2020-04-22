@@ -5,6 +5,8 @@ from PySide2.QtWidgets import *
 from PySide2.QtCore import *
 from collections import namedtuple
 
+from pygit2 import Repository
+
 from .common import *
 from .gitutils import Git
 from .findwidget import FindWidget
@@ -16,9 +18,8 @@ import bisect
 
 LineItem = namedtuple("LineItem", ["type", "content"])
 
-diff_re = re.compile(b"^diff --(git a/(.*) b/(.*)|cc (.*))")
+diff_re = re.compile("^diff --(git a/(.*) b/(.*)|cc (.*))")
 diff_begin_re = re.compile(r"^@{2,}( (\+|\-)[0-9]+(,[0-9]+)?)+ @{2,}")
-diff_begin_bre = re.compile(rb"^@{2,}( (\+|\-)[0-9]+(,[0-9]+)?)+ @{2,}")
 
 sha1_re = re.compile("(?<![a-zA-Z0-9_])[a-f0-9]{7,40}(?![a-zA-Z0-9_])")
 email_re = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
@@ -88,12 +89,13 @@ class TreeItemDelegate(QItemDelegate):
         self.pattern = pattern
 
 
-class DiffFetcher(DataFetcher):
+class DiffFetcher(QThread):
 
+    fetchFinished = Signal()
     diffAvailable = Signal(list, dict)
 
     def __init__(self, parent=None):
-        super(DiffFetcher, self).__init__(parent)
+        super().__init__(parent)
         self._isDiffContent = False
         self._row = 0
 
@@ -101,8 +103,11 @@ class DiffFetcher(DataFetcher):
         lineItems = []
         fileItems = {}
 
-        lines = data.rstrip(self.separator).split(self.separator)
+        lines = data.rstrip('\n').split('\n')
         for line in lines:
+            if self.isInterruptionRequested():
+                return
+
             match = diff_re.search(line)
             if match:
                 if match.group(4):  # diff --cc
@@ -112,11 +117,11 @@ class DiffFetcher(DataFetcher):
                     fileA = match.group(2)
                     fileB = match.group(3)
 
-                fileItems[fileA.decode(diff_encoding)] = self._row
+                fileItems[fileA] = self._row
                 # renames, keep new file name only
                 if fileB and fileB != fileA:
                     lineItems.append(LineItem(TextLine.File, fileB))
-                    fileItems[fileB.decode(diff_encoding)] = self._row
+                    fileItems[fileB] = self._row
                 else:
                     lineItems.append(LineItem(TextLine.File, fileA))
 
@@ -127,10 +132,10 @@ class DiffFetcher(DataFetcher):
 
             if self._isDiffContent:
                 itemType = TextLine.Diff
-            elif diff_begin_bre.search(line):
+            elif diff_begin_re.search(line):
                 self._isDiffContent = True
                 itemType = TextLine.Diff
-            elif line.startswith(b"--- ") or line.startswith(b"+++ "):
+            elif line.startswith("--- ") or line.startswith("+++ "):
                 continue
             elif not line:  # ignore the empty info line
                 continue
@@ -138,11 +143,11 @@ class DiffFetcher(DataFetcher):
                 itemType = TextLine.FileInfo
 
             if itemType != TextLine.Diff:
-                line = line.rstrip(b'\r')
+                line = line.rstrip('\r')
             lineItems.append(LineItem(itemType, line))
             self._row += 1
 
-        if lineItems:
+        if lineItems and not self.isInterruptionRequested():
             self.diffAvailable.emit(lineItems, fileItems)
 
     def setBeginRow(self, row):
@@ -150,31 +155,40 @@ class DiffFetcher(DataFetcher):
 
     def cancel(self):
         self._isDiffContent = False
-        super(DiffFetcher, self).cancel()
+        if self.isRunning():
+            self.requestInterruption()
 
-    def makeArgs(self, args):
-        sha1 = args[0]
-        filePath = args[1]
-        gitArgs = args[2]
+    def fetch(self, sha1, filterPath=None, args=None):
+        self.cancel()
 
-        if sha1 == Git.LCC_SHA1:
-            git_args = ["diff-index", "--cached", "HEAD"]
-        elif sha1 == Git.LUC_SHA1:
-            git_args = ["diff-files"]
-        else:
-            git_args = ["diff-tree", "-r", "--root", sha1]
+        self._sha1 = sha1
+        self._filterPath = filterPath
+        self._args = args
+        self._repo_dir = Git.REPO_DIR
 
-        git_args.extend(["-p", "--textconv", "--submodule",
-                         "-C", "--cc", "--no-commit-id", "-U3"])
+        self.start()
 
-        if gitArgs:
-            git_args.extend(gitArgs)
+    def run(self):
+        repo = Repository(self._repo_dir)
 
-        if filePath:
-            git_args.append("--")
-            git_args.extend(filePath)
+        if self.isInterruptionRequested():
+            return
 
-        return git_args
+        # TODO: filter pattern
+        try:
+            if self._sha1 == Git.LCC_SHA1:
+                diff = repo.diff("HEAD", cached=True)
+            elif self._sha1 == Git.LUC_SHA1:
+                diff = repo.diff()
+            else:
+                diff = repo.diff(self._sha1, self._sha1 + "^")
+            if diff.patch:
+                self.parse(diff.patch)
+        except KeyError:
+            pass
+
+        if not self.isInterruptionRequested():
+            self.fetchFinished.emit()
 
 
 class DiffView(QWidget):
@@ -362,57 +376,52 @@ class DiffView(QWidget):
             item.setData(0, Qt.UserRole, args[1])
             self.treeWidget.addTopLevelItem(item)
 
-    def __toBytes(self, string):
-        return string.encode("utf-8")
-
     def __commitDesc(self, sha1):
         if sha1 == Git.LUC_SHA1:
-            subject = self.__toBytes(
-                self.tr("Local uncommitted changes, not checked in to index")
-            )
+            subject = self.tr(
+                "Local uncommitted changes, not checked in to index")
         elif sha1 == Git.LCC_SHA1:
-            subject = self.__toBytes(
-                self.tr("Local changes checked in to index but not committed")
-            )
+            subject = self.tr(
+                "Local changes checked in to index but not committed")
         else:
-            subject = Git.commitSubject(sha1)
+            subject = Git.commitSubject(sha1).decode("utf-8")
 
-        return b" (" + subject + b")"
+        return " (" + subject + ")"
 
     def __commitToLineItems(self, commit):
         items = []
 
         if not commit.sha1 in [Git.LUC_SHA1, Git.LCC_SHA1]:
-            content = self.__toBytes(self.tr("Author: ") + commit.author +
-                                     " " + commit.authorDate)
+            content = self.tr("Author: ") + commit.author + \
+                " " + commit.authorDate
             item = LineItem(TextLine.Author, content)
             items.append(item)
 
-            content = self.__toBytes(self.tr("Committer: ") + commit.committer +
-                                     " " + commit.committerDate)
+            content = self.tr("Committer: ") + \
+                commit.committer + " " + commit.committerDate
             item = LineItem(TextLine.Author, content)
             items.append(item)
 
         for parent in commit.parents:
-            content = self.__toBytes(self.tr("Parent: ") + parent)
+            content = self.tr("Parent: ") + parent
             content += self.__commitDesc(parent)
             item = LineItem(TextLine.Parent, content)
             items.append(item)
 
         for child in commit.children:
-            content = self.__toBytes(self.tr("Child: ") + child)
+            content = self.tr("Child: ") + child
             content += self.__commitDesc(child)
             items.append(LineItem(TextLine.Child, content))
 
-        items.append(LineItem(TextLine.Comments, b""))
+        items.append(LineItem(TextLine.Comments, ""))
 
         comments = commit.comments.split('\n')
         for comment in comments:
             content = comment if not comment else "    " + comment
-            item = LineItem(TextLine.Comments, self.__toBytes(content))
+            item = LineItem(TextLine.Comments, content)
             items.append(item)
 
-        items.append(LineItem(TextLine.Comments, b""))
+        items.append(LineItem(TextLine.Comments, ""))
 
         return items
 
@@ -899,7 +908,6 @@ class PatchViewer(QAbstractScrollArea):
         self._textLines = {}
         # only when all data loaded can clear _lineItems
         self._canClearCache = False
-        self.lastEncoding = None
 
         self.defOption = QTextOption()
         self.defOption.setWrapMode(QTextOption.NoWrap)
@@ -1061,14 +1069,7 @@ class PatchViewer(QAbstractScrollArea):
 
         item = self._lineItems[index]
 
-        # only diff line needs different encoding
-        if item.type != TextLine.Diff:
-            self.lastEncoding = diff_encoding
-
-        # alloc too many objects at the same time is too slow
-        # so delay construct TextLine and decode bytes here
-        text, self.lastEncoding = decodeDiffData(
-            item.content, self.lastEncoding)
+        text = item.content
         if item.type == TextLine.Diff:
             textLine = DiffTextLine(self, text)
         elif item.type == TextLine.File or \
@@ -1189,8 +1190,9 @@ class PatchViewer(QAbstractScrollArea):
 
     def clearCache(self):
         self._canClearCache = True
-        if not self._textLines or (len(self._textLines) == len(self._lineItems)):
-            self._lineItems = None
+        if self._lineItems:
+            if not self._textLines or (len(self._textLines) == len(self._lineItems)):
+                self._lineItems = None
 
     def mouseMoveEvent(self, event):
         if self.tripleClickTimer.isValid():

@@ -148,28 +148,6 @@ def htmlEscape(text):
     return "".join(html_escape_table.get(c, c) for c in text)
 
 
-def decodeDiffData(data, preferEncoding="utf-8"):
-    encodings = ["utf-8", "gb18030", "utf16"]
-    if preferEncoding:
-        encodings.remove(preferEncoding)
-        encodings.insert(0, preferEncoding)
-    line = None
-    ok = False
-    for e in encodings:
-        try:
-            line = data.decode(e)
-            ok = True
-            break
-        except UnicodeDecodeError:
-            pass
-
-    if not ok:
-        line = data.decode(preferEncoding, "replace")
-        e = preferEncoding
-
-    return line, e
-
-
 def appDirPath():
     # qApp.applicationDirPath not works as expected
     path = os.path.realpath(__file__)
