@@ -75,12 +75,12 @@ class LogsFetcher(QThread):
             commits.append(Commit.fromRawCommit(commit))
             # split the commits to emit
             if len(commits) == 500:
-                self.logsAvailable.emit(commits)
+                self.logsAvailable.emit(commits[:])
                 commits.clear()
 
         # profile = None
         if len(commits):
-            self.logsAvailable.emit(commits)
+            self.logsAvailable.emit(commits[:])
 
         self.fetchFinished.emit()
 
