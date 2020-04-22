@@ -181,7 +181,7 @@ class DiffFetcher(QThread):
             elif self._sha1 == Git.LUC_SHA1:
                 diff = repo.diff()
             else:
-                diff = repo.diff(self._sha1, self._sha1 + "^")
+                diff = repo.diff(self._sha1 + "^", self._sha1)
             if diff.patch:
                 self.parse(diff.patch)
         except KeyError:
@@ -384,7 +384,7 @@ class DiffView(QWidget):
             subject = self.tr(
                 "Local changes checked in to index but not committed")
         else:
-            subject = Git.commitSubject(sha1).decode("utf-8")
+            subject = Git.commitSubject(sha1)
 
         return " (" + subject + ")"
 

@@ -185,18 +185,6 @@ class Git():
         return list(repo.branches), cur_branch
 
     @staticmethod
-    def branchLogs(branch, pattern=None):
-        repo = Repository(Git.REPO_DIR)
-        commits = []
-
-        for commit in repo.walk(
-                repo.branches[branch].target,
-                GIT_SORT_TOPOLOGICAL):
-            commits.append(Commit.fromRawCommit(commit))
-
-        return commits
-
-    @staticmethod
     def commitSummary(sha1):
         fmt = "%h%x01%s%x01%ad%x01%an%x01%ae"
         args = ["show", "-s",
@@ -217,10 +205,9 @@ class Git():
 
     @staticmethod
     def commitSubject(sha1):
-        args = ["show", "-s", "--pretty=format:%s", sha1]
-        data = Git.checkOutput(args)
-
-        return data
+        repo = Repository(Git.REPO_DIR)
+        commit = repo.get(sha1)
+        return commit.message.split('\n')[0]
 
     @staticmethod
     def commitFiles(sha1):
