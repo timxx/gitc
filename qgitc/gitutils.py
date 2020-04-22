@@ -210,44 +210,6 @@ class Git():
         return commit.message.split('\n')[0]
 
     @staticmethod
-    def commitFiles(sha1):
-        args = ["diff-tree", "--no-commit-id",
-                "--name-only", "--root", "-r",
-                "-z", "-C", "--cc",
-                "--submodule", sha1]
-
-        data = Git.checkOutput(args)
-        if not data:
-            return None
-
-        return data.decode("utf-8")
-
-    @staticmethod
-    def commitRawDiff(sha1, filePath=None, gitArgs=None):
-        if sha1 == Git.LCC_SHA1:
-            args = ["diff-index", "--cached", "HEAD"]
-        elif sha1 == Git.LUC_SHA1:
-            args = ["diff-files"]
-        else:
-            args = ["diff-tree", "-r", "--root", sha1]
-
-        args.extend(["-p", "--textconv", "--submodule",
-                     "-C", "--cc", "--no-commit-id", "-U3"])
-
-        if gitArgs:
-            args.extend(gitArgs)
-
-        if filePath:
-            args.append("--")
-            args.append(filePath)
-
-        data = Git.checkOutput(args)
-        if not data:
-            return None
-
-        return data
-
-    @staticmethod
     def externalDiff(commit, path=None, tool=None):
         args = ["difftool"]
         if commit.sha1 == Git.LUC_SHA1:
