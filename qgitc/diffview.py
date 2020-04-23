@@ -164,7 +164,7 @@ class DiffFetcher(QThread):
         self._sha1 = sha1
         self._filterPath = filterPath
         self._args = args
-        self._repo_dir = Git.REPO_DIR
+        self._repo_dir = Git.repo.workdir
 
         self.start()
 

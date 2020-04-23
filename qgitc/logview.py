@@ -50,7 +50,7 @@ class LogsFetcher(QThread):
     def fetch(self, branch, args=None):
         self.cancel()
 
-        self._repo_dir = Git.REPO_DIR
+        self._repo_dir = Git.repo.workdir
         self._branch = branch
         self._args = args
         self.start()

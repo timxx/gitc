@@ -78,9 +78,6 @@ class MainWindow(QMainWindow):
 
         self.gitViewB = None
 
-        self.isWindowReady = False
-        self.repoDir = None
-        self.timerId = -1
         self.findSubmoduleThread = None
 
         self.mergeWidget = None
@@ -193,45 +190,43 @@ class MainWindow(QMainWindow):
         if not repoDir:
             return
 
-        repoDir = Git.repoTopLevelDir(repoDir)
-        if not repoDir:
+        repo = Git.load(repoDir)
+        if not repo:
             QMessageBox.critical(self, self.windowTitle(),
                                  self.tr("The directory you choosen is not a git repository!"))
             return
 
-        self.ui.leRepo.setText(repoDir)
+        self.ui.leRepo.setText(repo.workdir)
 
     def __onRepoChanged(self, repoDir):
         self.ui.cbSubmodule.clear()
         self.ui.cbSubmodule.setVisible(False)
         self.ui.lbSubmodule.setVisible(False)
 
-        if not Git.repoTopLevelDir(repoDir):
+        if not Git.repo or Git.repo.workdir != repoDir:
+            Git.repo = Git.load(repoDir)
+
+        if not Git.repo:
             msg = self.tr("'{0}' is not a git repository")
             self.ui.statusbar.showMessage(
                 msg.format(repoDir),
                 5000)  # 5 seconds
-            # let gitview clear the old branches
-            repoDir = None
+
             # clear
-            Git.REPO_DIR = None
-            Git.REPO_TOP_DIR = None
             if Git.REF_MAP:
                 Git.REF_MAP.clear()
             Git.REV_HEAD = None
         else:
-            Git.REPO_DIR = repoDir
-            Git.REPO_TOP_DIR = repoDir
             Git.REF_MAP = Git.refs()
             Git.REV_HEAD = Git.revHead()
 
         if self.findSubmoduleThread and self.findSubmoduleThread.isRunning():
             self.findSubmoduleThread.terminate()
 
-        if repoDir:
+        if Git.repo:
             self.ui.leRepo.setDisabled(True)
             self.ui.btnRepoBrowse.setDisabled(True)
-            self.findSubmoduleThread = FindSubmoduleThread(repoDir, self)
+            self.findSubmoduleThread = FindSubmoduleThread(Git.repo.workdir, self)
             self.findSubmoduleThread.finished.connect(
                 self.__onFindSubmoduleFinished)
             self.findSubmoduleThread.start()
@@ -315,6 +310,8 @@ class MainWindow(QMainWindow):
         self.setFilterFile(filePath)
 
     def __onSubmoduleChanged(self, index):
+        # TODO:
+        return
         newRepo = Git.REPO_TOP_DIR
         if index > 0:
             newRepo = os.path.join(Git.REPO_TOP_DIR, self.ui.cbSubmodule.currentText())
@@ -402,25 +399,8 @@ class MainWindow(QMainWindow):
 
         super(MainWindow, self).keyPressEvent(event)
 
-    def showEvent(self, event):
-        super(MainWindow, self).showEvent(event)
-        if not self.isWindowReady:
-            self.isWindowReady = True
-
-    def timerEvent(self, event):
-        if event.timerId() != self.timerId:
-            return
-
-        if self.isWindowReady:
-            if self.repoDir:
-                self.ui.leRepo.setText(self.repoDir)
-            self.killTimer(self.timerId)
-            self.timerId = -1
-
     def setRepoDir(self, repoDir):
-        self.repoDir = repoDir
-        if self.timerId == -1:
-            self.timerId = self.startTimer(50)
+        self.ui.leRepo.setText(repoDir)
 
     def setFilterFile(self, filePath):
         if not filePath.startswith("-- "):
@@ -538,11 +518,14 @@ def main():
 
     setAppUserId("appid.qgitc.xyz")
 
-    repoDir = Git.repoTopLevelDir(os.getcwd())
     filterFile = args.file
 
+    # profile = MyProfile()
     if args.repo:
-        repoDir = Git.repoTopLevelDir(args.repo)
+        Git.repo = Git.load(args.repo)
+    else:
+        Git.repo = Git.load(os.getcwd())
+    # profile = None
 
     global app
     app = Application(sys.argv)
@@ -565,8 +548,8 @@ def main():
     if filterFile:
         window.setFilterFile(filterFile)
 
-    if repoDir:
-        window.setRepoDir(repoDir)
+    if Git.repo:
+        window.setRepoDir(Git.repo.workdir)
 
     if window.restoreState():
         window.show()

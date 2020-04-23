@@ -133,7 +133,7 @@ class GitView(QWidget):
         self.ui.diffView.clear()
         self.ui.leSha1.clear()
 
-        if not Git.REPO_DIR:
+        if not Git.repo:
             return
 
         branches, cur_branch = Git.branches()
@@ -177,15 +177,6 @@ class GitView(QWidget):
         self.ui.diffView.clear()
 
         branch = self.ui.cbBranch.currentText()
-
-        # FIXME: do not change the repo dir
-        # update the REPO_DIR because we need fetch information about
-        # the local changes and diffs
-        if not branch.startswith("remotes/"):
-            branchDir = Git.branchDir(branch)
-            if branchDir and os.path.exists(branchDir):
-                Git.REPO_DIR = branchDir
-
         self.ui.logView.showLogs(
             branch,
             self.logArgs)

@@ -2,7 +2,11 @@
 
 from collections import defaultdict
 from pygit2 import Repository
-from pygit2 import GIT_SORT_TOPOLOGICAL, GIT_REF_OID
+from pygit2 import (
+    GIT_SORT_TOPOLOGICAL,
+    GIT_REF_OID,
+    discover_repository
+)
 
 import subprocess
 import os
@@ -103,8 +107,8 @@ class Ref():
 
 
 class Git():
-    REPO_DIR = os.getcwd()
-    REPO_TOP_DIR = os.getcwd()
+    # NOT thread-safe
+    repo = None
     REF_MAP = {}
     REV_HEAD = None
 
@@ -115,7 +119,7 @@ class Git():
 
     @staticmethod
     def run(args):
-        return GitProcess(Git.REPO_DIR, args)
+        return GitProcess(Git.repo.workdir, args)
 
     @staticmethod
     def checkOutput(args):
@@ -127,33 +131,31 @@ class Git():
         return data
 
     @staticmethod
-    def repoTopLevelDir(directory):
-        """get top level repo directory
-        if @directory is not a repository, None returned"""
-
+    def load(directory):
+        """ load a git repository from @directory
+        if @directory is not a repository, None returned,
+        otherwise pygit2.Repository is returned
+        """
         if not os.path.isdir(directory):
             return None
         if not os.path.exists(directory):
             return None
 
-        args = ["rev-parse", "--show-toplevel"]
-        process = GitProcess(directory, args)
-        realDir = process.communicate()[0]
-        if process.returncode != 0:
+        path = discover_repository(directory)
+        if not path:
             return None
 
-        return realDir.decode("utf-8").replace("\n", "")
+        return Repository(path)
 
     @staticmethod
     def refs():
-        repo = Repository(Git.REPO_DIR)
         refMap = defaultdict(list)
-        for r in repo.references:
+        for r in Git.repo.references:
             ref = Ref.fromRawString(r)
             if not ref:
                 continue
 
-            reference = repo.references[r]
+            reference = Git.repo.references[r]
             if reference.type == GIT_REF_OID:
                 sha1 = reference.target.hex
             else:
@@ -164,14 +166,12 @@ class Git():
 
     @staticmethod
     def revHead():
-        repo = Repository(Git.REPO_DIR)
-        return repo.head.target
+        return Git.repo.head.target.hex
 
     @staticmethod
     def branches():
-        repo = Repository(Git.REPO_DIR)
-        cur_branch = repo.head.shorthand
-        return list(repo.branches), cur_branch
+        cur_branch = Git.repo.head.shorthand
+        return list(Git.repo.branches), cur_branch
 
     @staticmethod
     def commitSummary(sha1):
@@ -194,8 +194,7 @@ class Git():
 
     @staticmethod
     def commitSubject(sha1):
-        repo = Repository(Git.REPO_DIR)
-        commit = repo.get(sha1)
+        commit = Git.repo.get(sha1)
         return commit.message.split('\n')[0]
 
     @staticmethod
