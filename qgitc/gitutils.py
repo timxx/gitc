@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 from pygit2 import Repository
-from pygit2 import GIT_SORT_TOPOLOGICAL
+from pygit2 import GIT_SORT_TOPOLOGICAL, GIT_REF_OID
 
 import subprocess
 import os
@@ -74,13 +74,7 @@ class Ref():
         self._name = name
 
     @classmethod
-    def fromRawString(cls, string):
-        if not string or len(string) < 46:
-            return None
-
-        sha1 = string[0:40]
-        name = string[41:]
-
+    def fromRawString(cls, name):
         if not name.startswith("refs/"):
             return None
 
@@ -152,31 +146,26 @@ class Git():
 
     @staticmethod
     def refs():
-        args = ["show-ref", "-d"]
-        data = Git.checkOutput(args)
-        if not data:
-            return None
-        lines = data.decode("utf-8").split('\n')
+        repo = Repository(Git.REPO_DIR)
         refMap = defaultdict(list)
-
-        for line in lines:
-            ref = Ref.fromRawString(line)
+        for r in repo.references:
+            ref = Ref.fromRawString(r)
             if not ref:
                 continue
 
-            sha1 = line[0:40]
+            reference = repo.references[r]
+            if reference.type == GIT_REF_OID:
+                sha1 = reference.target.hex
+            else:
+                sha1 = reference.target
             bisect.insort(refMap[sha1], ref)
 
         return refMap
 
     @staticmethod
     def revHead():
-        args = ["rev-parse", "HEAD"]
-        data = Git.checkOutput(args)
-        if not data:
-            return None
-
-        return data.decode("utf-8").rstrip('\n')
+        repo = Repository(Git.REPO_DIR)
+        return repo.head.target
 
     @staticmethod
     def branches():
