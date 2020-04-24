@@ -43,6 +43,11 @@ class LogsFetcher(QThread):
     def __init__(self, parent=None):
         super().__init__(parent)
 
+        self._lccText = self.tr(
+            "Local changes checked in to index but not committed")
+        self._lucText = self.tr(
+            "Local uncommitted changes, not checked in to index")
+
     def cancel(self):
         if self.isRunning():
             self.requestInterruption()
@@ -65,6 +70,30 @@ class LogsFetcher(QThread):
         # TODO: support args
         commits = []
 
+        hasLUC = False
+        hasLCC = False
+        if not self._branch.startswith("origin/"):
+            hasLUC = len(repo.diff()) > 0
+            hasLCC = len(repo.diff("HEAD", cached=True)) > 0
+
+            if hasLCC:
+                lcc_cmit = Commit()
+                lcc_cmit.sha1 = Git.LCC_SHA1
+                lcc_cmit.comments = self._lccText
+                lcc_cmit.parents = []
+                lcc_cmit.children = None
+
+                commits.append(lcc_cmit)
+
+            if hasLUC:
+                luc_cmit = Commit()
+                luc_cmit.sha1 = Git.LUC_SHA1
+                luc_cmit.comments = self._lucText
+                luc_cmit.parents = [Git.LCC_SHA1] if hasLCC else []
+                luc_cmit.children = []
+
+                commits.insert(0, luc_cmit)
+
         # TODO: it seems that repo.walk can cause GUI hangs, why???
         for commit in repo.walk(
                 repo.branches[self._branch].target,
@@ -72,7 +101,16 @@ class LogsFetcher(QThread):
 
             if self.isInterruptionRequested():
                 return
+
             commits.append(Commit.fromRawCommit(commit))
+
+            if hasLUC and hasLCC:
+                commits[1].parents.append(commits[-1].sha1)
+                hasLUC = hasLCC = False
+            elif hasLUC or hasLCC:
+                commits[0].parents.append(commits[-1].sha1)
+                hasLUC = hasLCC = False
+
             # split the commits to emit
             if len(commits) == 500:
                 self.logsAvailable.emit(commits[:])
@@ -478,21 +516,6 @@ class FindData():
         return FIND_NOTFOUND
 
 
-class CheckLocalChangesThread(QThread):
-
-    checkFinished = Signal(bool, bool)
-
-    def __init__(self, branch, parent=None):
-        super(CheckLocalChangesThread, self).__init__(parent)
-        self._branch = branch
-
-    def run(self):
-        hasLCC = Git.hasLocalChanges(self._branch, True)
-        hasLUC = Git.hasLocalChanges(self._branch)
-
-        self.checkFinished.emit(hasLCC, hasLUC)
-
-
 class LogGraph(QWidget):
 
     def __init__(self, parent=None):
@@ -538,9 +561,6 @@ class LogView(QAbstractScrollArea):
         self.curBranch = ""
         self.preferSha1 = None
         self.delayVisible = False
-        self.delayUpdateParents = False
-
-        self.checkThread = None
 
         self.lineSpace = dpiScaled(5)
         self.marginX = dpiScaled(3)
@@ -633,22 +653,12 @@ class LogView(QAbstractScrollArea):
         self.fetcher.fetch(branch, args)
         self.beginFetch.emit()
 
-        if self.checkThread:
-            self.checkThread.terminate()
-            del self.checkThread
-
-        if not args:
-            self.checkThread = CheckLocalChangesThread(self.curBranch, self)
-            self.checkThread.checkFinished.connect(self.__onCheckFinished)
-            self.checkThread.start()
-
     def clear(self):
         self.data.clear()
         self.curIdx = -1
         self.__resetGraphs()
         self.marker.clear()
         self.delayVisible = False
-        self.delayUpdateParents = False
         self.clearFindData()
         self.updateGeometries()
         self.viewport().update()
@@ -849,16 +859,6 @@ class LogView(QAbstractScrollArea):
     def __onLogsAvailable(self, logs):
         self.data.extend(logs)
 
-        if self.delayUpdateParents and len(self.data) > 2:
-            if self.data[1].sha1 == Git.LCC_SHA1:
-                self.data[1].parents = [self.data[2].sha1]
-            elif self.data[0].sha1 in (Git.LUC_SHA1, Git.LCC_SHA1):
-                self.data[0].parents = [self.data[1].sha1]
-
-            self.__resetGraphs()
-            self.viewport().update()
-            self.delayUpdateParents = False
-
         if self.currentIndex() == -1:
             if self.preferSha1:
                 begin = len(self.data) - len(logs)
@@ -882,54 +882,6 @@ class LogView(QAbstractScrollArea):
         self.viewport().update()
 
         self.endFetch.emit()
-
-    def __onCheckFinished(self, hasLCC, hasLUC):
-        parent_sha1 = self.data[0].sha1 if self.data else None
-
-        self.delayUpdateParents = False
-        if hasLCC:
-            lcc_cmit = Commit()
-            lcc_cmit.sha1 = Git.LCC_SHA1
-            lcc_cmit.comments = self.tr(
-                "Local changes checked in to index but not committed")
-            lcc_cmit.parents = [parent_sha1] if parent_sha1 else []
-            lcc_cmit.children = [Git.LUC_SHA1] if hasLUC else []
-
-            if self.data[0].children is not None and \
-                    lcc_cmit.sha1 not in self.data[0].children:
-                self.data[0].children.append(lcc_cmit.sha1)
-
-            self.data.insert(0, lcc_cmit)
-            parent_sha1 = lcc_cmit.sha1
-            self.delayUpdateParents = len(lcc_cmit.parents) == 0
-
-        if hasLUC:
-            luc_cmit = Commit()
-            luc_cmit.sha1 = Git.LUC_SHA1
-            luc_cmit.comments = self.tr(
-                "Local uncommitted changes, not checked in to index")
-            luc_cmit.parents = [parent_sha1] if parent_sha1 else []
-            luc_cmit.children = []
-
-            if self.data[0].children is not None and \
-                    luc_cmit.sha1 not in self.data[0].children:
-                self.data[0].children.append(luc_cmit.sha1)
-
-            self.data.insert(0, luc_cmit)
-            self.delayUpdateParents = self.delayUpdateParents or len(
-                luc_cmit.parents) == 0
-
-        # FIXME: modified the graphs directly
-        if self.graphs and (hasLUC or hasLCC) and not self.delayUpdateParents:
-            self.__resetGraphs()
-            self.viewport().update()
-
-        if self.curIdx == 0 and (hasLUC or hasLCC):
-            # force update the diff
-            self.currentIndexChanged.emit(0)
-            self.viewport().update()
-
-        self.checkThread = None
 
     def __resetGraphs(self):
         self.graphs.clear()

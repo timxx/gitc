@@ -241,17 +241,8 @@ class Git():
         return len(data.rstrip(b'\n')) > 0
 
     @staticmethod
-    def gitDir():
-        args = ["rev-parse", "--git-dir"]
-        data = Git.checkOutput(args)
-        if not data:
-            return None
-
-        return data.rstrip(b'\n').decode("utf-8")
-
-    @staticmethod
     def gitPath(name):
-        dir = Git.gitDir()
+        dir = Git.repo.path
         if not dir:
             return None
         if dir[-1] != '/' and dir[-1] != '\\':
@@ -312,47 +303,3 @@ class Git():
         process.communicate()
 
         return process.returncode == 0
-
-    @staticmethod
-    def hasLocalChanges(branch, cached=False):
-        # A remote branch should never have local changes
-        if branch.startswith("remotes/"):
-            return False
-
-        dir = Git.branchDir(branch)
-        # only branch checked out can have local changes
-        if not dir:
-            return False
-
-        # FIXME: the @branch isn't working as expected
-        # and cannot specified here
-        args = ["diff", "--quiet"]
-        if cached:
-            args.append("--cached")
-
-        process = Git.run(args)
-        process.communicate()
-
-        return process.returncode == 1
-
-    @staticmethod
-    def branchDir(branch):
-        """returned the branch directory if it checked out
-        otherwise returned an empty string"""
-
-        args = ["worktree", "list"]
-        data = Git.checkOutput(args)
-        if not data:
-            return ""
-
-        worktree_re = re.compile(r"(\S+)\s+[a-f0-9]+\s+\[(\S+)\]$")
-        worktrees = data.rstrip(b'\n').decode("utf8").split('\n')
-
-        for wt in worktrees:
-            m = worktree_re.fullmatch(wt)
-            if not m:
-                print("Oops! Wrong format for worktree:", wt)
-            elif m.group(2) == branch:
-                return m.group(1)
-
-        return ""
