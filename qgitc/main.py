@@ -3,6 +3,8 @@
 from PySide2.QtGui import *
 from PySide2.QtCore import *
 
+from pygit2 import Repository
+
 from .ui_mainwindow import *
 from .gitview import *
 from .preferences import *
@@ -38,15 +40,19 @@ class FindSubmoduleThread(QThread):
     def run(self):
         self._submodules.clear()
 
-        # try git submodule first
-        data = subprocess.check_output(
-            ["git", "submodule", "foreach", "--quiet", "echo $name"],
-            cwd=self._repoDir,
-            universal_newlines=True)
-        if data:
-            self._submodules = data.rstrip().split('\n')
-            self._submodules.insert(0, ".")
-            return
+        repo = Repository(self._repoDir)
+        submodules = repo.listall_submodules()
+        if submodules:
+            self._submodules = ["."]
+
+            # FIXME: the pygit2 doesn't provide a way
+            # to list only the checked out submodule
+            for mod in submodules:
+                dot_git = os.path.join(self._repoDir, mod, ".git")
+                if os.path.exists(dot_git):
+                    self._submodules.append(mod)
+
+            return self._submodules
 
         submodules = []
         # some projects may not use submodule or subtree
@@ -310,15 +316,23 @@ class MainWindow(QMainWindow):
         self.setFilterFile(filePath)
 
     def __onSubmoduleChanged(self, index):
-        # TODO:
-        return
-        newRepo = Git.REPO_TOP_DIR
-        if index > 0:
-            newRepo = os.path.join(Git.REPO_TOP_DIR, self.ui.cbSubmodule.currentText())
-        if os.path.normcase(os.path.normpath(newRepo)) == os.path.normcase(os.path.normpath(Git.REPO_DIR)):
+        submodule = self.ui.cbSubmodule.currentText()
+        # not selected any submodule
+        if not submodule:
             return
 
-        Git.REPO_DIR = newRepo
+        top_dir = self.ui.leRepo.text()
+        if submodule == ".":
+            submodule = ""
+
+        submodule_path = os.path.join(top_dir, submodule)
+        if os.path.normcase(os.path.normpath(submodule_path)) == os.path.normcase(os.path.normpath(Git.repo.workdir)):
+            return
+
+        Git.repo = Git.load(submodule_path)
+        Git.REF_MAP = Git.refs()
+        Git.REV_HEAD = Git.revHead()
+
         self.ui.gitViewA.reloadBranches(
             self.ui.gitViewA.currentBranch())
         if self.gitViewB:
