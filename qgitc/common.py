@@ -9,7 +9,6 @@ import sys
 from datetime import datetime, timezone, timedelta
 
 
-log_fmt = "%H%x01%B%x01%an <%ae>%x01%ai%x01%cn <%ce>%x01%ci%x01%P"
 html_escape_table = {
     "&": "&amp;",
     '"': "&quot;",
@@ -156,3 +155,11 @@ def appDirPath():
 
 def dataDirPath():
     return appDirPath() + "/data"
+
+
+def normPath(path):
+    return os.path.normcase(os.path.normpath(path))
+
+
+def isSamePath(path1, path2):
+    return normPath(path1) == normPath(path2)

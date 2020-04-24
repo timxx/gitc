@@ -363,3 +363,6 @@ class GitView(QWidget):
 
     def setBranchChangeble(self, canChange):
         self.ui.cbBranch.setEnabled(canChange)
+
+    def branchCount(self):
+        return self.ui.cbBranch.count()

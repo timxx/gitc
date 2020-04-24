@@ -13,7 +13,7 @@ import os
 import bisect
 import re
 
-from .common import log_fmt, Commit
+from .common import Commit
 
 
 class GitProcess():

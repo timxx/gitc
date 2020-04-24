@@ -11,7 +11,7 @@ from .preferences import *
 from .settings import *
 from .gitutils import Git
 from .diffview import PatchViewer
-from .common import dataDirPath
+from .common import dataDirPath, normPath
 from .aboutdialog import AboutDialog
 from .mergewidget import MergeWidget
 from .excepthandler import ExceptHandler
@@ -28,7 +28,7 @@ class FindSubmoduleThread(QThread):
     def __init__(self, repoDir, parent=None):
         super(FindSubmoduleThread, self).__init__(parent)
 
-        self._repoDir = os.path.normcase(os.path.normpath(repoDir))
+        self._repoDir = normPath(repoDir)
         self._submodules = []
 
     @property
@@ -204,13 +204,20 @@ class MainWindow(QMainWindow):
 
         self.ui.leRepo.setText(repo.workdir)
 
-    def __onRepoChanged(self, repoDir):
-        self.ui.cbSubmodule.clear()
-        self.ui.cbSubmodule.setVisible(False)
-        self.ui.lbSubmodule.setVisible(False)
+    def __isRepoChanged(self, repoDir):
+        submodule = self.ui.cbSubmodule.currentText()
+        if not submodule or submodule == ".":
+            return not isSamePath(Git.repo.workdir, repoDir)
 
-        if not Git.repo or Git.repo.workdir != repoDir:
+        curRepo = Git.repo.workdir[:-(len(submodule) + 1)]
+        return not isSamePath(curRepo, repoDir)
+
+    def __onRepoChanged(self, repoDir):
+        needReload = True
+        if not Git.repo or self.__isRepoChanged(repoDir):
             Git.repo = Git.load(repoDir)
+        else:
+            needReload = False
 
         if not Git.repo:
             msg = self.tr("'{0}' is not a git repository")
@@ -226,10 +233,16 @@ class MainWindow(QMainWindow):
             Git.REF_MAP = Git.refs()
             Git.REV_HEAD = Git.revHead()
 
-        if self.findSubmoduleThread and self.findSubmoduleThread.isRunning():
-            self.findSubmoduleThread.terminate()
+        reloadSubmodule = needReload or self.ui.cbSubmodule.count() == 0
+        if reloadSubmodule:
+            self.ui.cbSubmodule.clear()
+            self.ui.cbSubmodule.setVisible(False)
+            self.ui.lbSubmodule.setVisible(False)
 
-        if Git.repo:
+            if self.findSubmoduleThread and self.findSubmoduleThread.isRunning():
+                self.findSubmoduleThread.terminate()
+
+        if Git.repo and reloadSubmodule:
             self.ui.leRepo.setDisabled(True)
             self.ui.btnRepoBrowse.setDisabled(True)
             self.findSubmoduleThread = FindSubmoduleThread(Git.repo.workdir, self)
@@ -237,12 +250,11 @@ class MainWindow(QMainWindow):
                 self.__onFindSubmoduleFinished)
             self.findSubmoduleThread.start()
 
-        branch = Git.mergeBranchName() if self.mergeWidget else None
-        if branch and branch.startswith("origin/"):
-            branch = "remotes/" + branch
-        self.ui.gitViewA.reloadBranches(branch)
-        if self.gitViewB:
-            self.gitViewB.reloadBranches()
+        if needReload or self.ui.gitViewA.branchCount() == 0:
+            branch = Git.mergeBranchName() if self.mergeWidget else None
+            self.ui.gitViewA.reloadBranches(branch)
+            if self.gitViewB:
+                self.gitViewB.reloadBranches()
 
     def __onAcPreferencesTriggered(self):
         settings = qApp.instance().settings()
@@ -326,7 +338,7 @@ class MainWindow(QMainWindow):
             submodule = ""
 
         submodule_path = os.path.join(top_dir, submodule)
-        if os.path.normcase(os.path.normpath(submodule_path)) == os.path.normcase(os.path.normpath(Git.repo.workdir)):
+        if isSamePath(submodule_path, Git.repo.workdir):
             return
 
         Git.repo = Git.load(submodule_path)
