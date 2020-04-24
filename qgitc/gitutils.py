@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 
 from collections import defaultdict
-from pygit2 import Repository
+from datetime import datetime, timezone, timedelta
+
 from pygit2 import (
+    Repository,
     GIT_SORT_TOPOLOGICAL,
     GIT_REF_OID,
     discover_repository
@@ -175,22 +177,15 @@ class Git():
 
     @staticmethod
     def commitSummary(sha1):
-        fmt = "%h%x01%s%x01%ad%x01%an%x01%ae"
-        args = ["show", "-s",
-                "--pretty=format:{0}".format(fmt),
-                "--date=short", sha1]
+        commit = Git.repo.revparse_single(sha1)
+        tzinfo = timezone(timedelta(minutes=commit.author.offset))
+        dt = datetime.fromtimestamp(float(commit.author.time), tzinfo)
 
-        data = Git.checkOutput(args)
-        if not data:
-            return None
-
-        parts = data.decode("utf-8").split("\x01")
-
-        return {"sha1": parts[0],
-                "subject": parts[1],
-                "date": parts[2],
-                "author": parts[3],
-                "email": parts[4]}
+        return {"sha1": commit.short_id,
+                "subject": commit.message.split('\n')[0],
+                "date": dt.strftime("%x"),
+                "author": commit.author.name,
+                "email": commit.author.email}
 
     @staticmethod
     def commitSubject(sha1):
