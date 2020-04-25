@@ -17,7 +17,6 @@ import bisect
 
 LineItem = namedtuple("LineItem", ["type", "content"])
 
-diff_re = re.compile("^diff --(git a/(.*) b/(.*)|cc (.*))")
 diff_begin_re = re.compile(r"^@{2,}( (\+|\-)[0-9]+(,[0-9]+)?)+ @{2,}")
 
 sha1_re = re.compile("(?<![a-zA-Z0-9_])[a-f0-9]{7,40}(?![a-zA-Z0-9_])")
@@ -95,65 +94,56 @@ class DiffFetcher(QThread):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._isDiffContent = False
         self._row = 0
 
-    def parse(self, data):
+    def _parse(self, patch):
         lineItems = []
         fileItems = {}
 
-        lines = data.rstrip('\n').split('\n')
-        for line in lines:
+        fileItems[patch.delta.new_file.path] = self._row
+        lineItems.append(LineItem(TextLine.File,
+                                  patch.delta.new_file.path))
+        # renames, keep new file name only
+        if patch.delta.new_file.path != patch.delta.old_file.path:
+            fileItems[patch.delta.old_file.path] = self._row
+        self._row += 1
+
+        lines = patch.text.rstrip().split('\n')
+
+        # file info
+        for i in range(1, len(lines)):
             if self.isInterruptionRequested():
                 return
 
-            match = diff_re.search(line)
-            if match:
-                if match.group(4):  # diff --cc
-                    fileA = match.group(4)
-                    fileB = None
-                else:
-                    fileA = match.group(2)
-                    fileB = match.group(3)
+            line = lines[i]
+            if line.startswith("--- ") or line.startswith("+++ "):
+                i += 1
+                break
 
-                fileItems[fileA] = self._row
-                # renames, keep new file name only
-                if fileB and fileB != fileA:
-                    lineItems.append(LineItem(TextLine.File, fileB))
-                    fileItems[fileB] = self._row
-                else:
-                    lineItems.append(LineItem(TextLine.File, fileA))
-
-                self._row += 1
-                self._isDiffContent = False
-
-                continue
-
-            if self._isDiffContent:
-                itemType = TextLine.Diff
-            elif diff_begin_re.search(line):
-                self._isDiffContent = True
-                itemType = TextLine.Diff
-            elif line.startswith("--- ") or line.startswith("+++ "):
-                continue
-            elif not line:  # ignore the empty info line
-                continue
-            else:
-                itemType = TextLine.FileInfo
-
-            if itemType != TextLine.Diff:
-                line = line.rstrip('\r')
-            lineItems.append(LineItem(itemType, line))
+            lineItems.append(LineItem(TextLine.FileInfo, line))
             self._row += 1
 
-        if lineItems and not self.isInterruptionRequested():
+        i += 1
+        # diff content
+        if i < len(lines):
+            for line in lines[i:]:
+                if self.isInterruptionRequested():
+                    return
+
+                lineItems.append(LineItem(TextLine.Diff, line))
+                self._row += 1
+        else:
+            # add an empty line
+            lineItems.append(LineItem(TextLine.Diff, ''))
+            self._row += 1
+
+        if not self.isInterruptionRequested():
             self.diffAvailable.emit(lineItems, fileItems)
 
     def setBeginRow(self, row):
         self._row = row
 
     def cancel(self):
-        self._isDiffContent = False
         if self.isRunning():
             self.requestInterruption()
 
@@ -189,8 +179,8 @@ class DiffFetcher(QThread):
                 diff = repo.diff()
             else:
                 diff = repo.diff(self._sha1 + "^", self._sha1)
-            if diff.patch:
-                self.parse(diff.patch)
+            for patch in diff:
+                self._parse(patch)
         except KeyError:
             pass
 
