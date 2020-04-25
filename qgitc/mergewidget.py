@@ -400,7 +400,7 @@ class MergeWidget(QWidget):
         self.process.readyReadStandardOutput.connect(self.__onReadyRead)
         self.process.readyReadStandardError.connect(self.__onResolveError)
         self.process.finished.connect(self.__onResolveFinished)
-        self.process.setWorkingDirectory(Git.REPO_DIR)
+        self.process.setWorkingDirectory(Git.repo.workdir)
         self.process.start("git", args)
 
         self.requestResolve.emit(file)

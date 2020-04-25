@@ -1327,7 +1327,7 @@ class LogView(QAbstractScrollArea):
                 args.extend(self.filterPath)
 
             process = QProcess()
-            process.setWorkingDirectory(Git.REPO_DIR)
+            process.setWorkingDirectory(Git.repo.workdir)
             process.readyReadStandardOutput.connect(self.__onFindDataAvailable)
             process.finished.connect(self.__onFindFinished)
             self.findProc = process
