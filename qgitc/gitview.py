@@ -187,7 +187,7 @@ class GitView(QWidget):
         if index != -1:
             commit = self.ui.logView.getCommit(index)
             self.ui.leSha1.setText(commit.sha1)
-            self.ui.diffView.showCommit(commit)
+            self.ui.diffView.showCommit(commit, self.ui.cbBranch.currentText())
         else:
             self.ui.leSha1.clear()
             self.ui.diffView.clear()

@@ -157,18 +157,26 @@ class DiffFetcher(QThread):
         if self.isRunning():
             self.requestInterruption()
 
-    def fetch(self, sha1, filterPath=None, args=None):
+    def fetch(self, sha1, branch=None, filterPath=None, args=None):
         self.cancel()
 
         self._sha1 = sha1
         self._filterPath = filterPath
         self._args = args
         self._repo_dir = Git.repo.workdir
+        self._branch = branch
 
         self.start()
 
     def run(self):
         repo = Repository(self._repo_dir)
+
+        if self.isInterruptionRequested():
+            return
+
+        if self._sha1 == Git.LCC_SHA1 or self._sha1 == Git.LUC_SHA1:
+            if self._branch != repo.head.shorthand:
+                repo = Git.loadForBranch(repo, self._branch)
 
         if self.isInterruptionRequested():
             return
@@ -204,6 +212,7 @@ class DiffView(QWidget):
         self.filterPath = None
         self.twMenu = QMenu()
         self.commit = None
+        self.branch = None
         self.gitArgs = []
         self.fetcher = DiffFetcher(self)
 
@@ -337,7 +346,7 @@ class DiffView(QWidget):
             self.gitArgs.append(args[index])
 
         if self.commit:
-            self.showCommit(self.commit)
+            self.showCommit(self.commit, self.branch)
 
     def __onTreeWidgetContextMenuRequested(self, pos):
         item = self.treeWidget.currentItem()
@@ -435,9 +444,10 @@ class DiffView(QWidget):
 
         return None
 
-    def showCommit(self, commit):
+    def showCommit(self, commit, branch):
         self.clear()
         self.commit = commit
+        self.branch = branch
 
         self.__addToTreeWidget(self.tr("Comments"), 0)
 
@@ -448,7 +458,7 @@ class DiffView(QWidget):
         self.viewer.setData(lineItems)
 
         self.fetcher.setBeginRow(len(lineItems))
-        self.fetcher.fetch(commit.sha1, self.filterPath, self.gitArgs)
+        self.fetcher.fetch(commit.sha1, branch, self.filterPath, self.gitArgs)
         # FIXME: delay showing the spinner when loading small diff to avoid flicker
         self.beginFetch.emit()
 

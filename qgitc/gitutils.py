@@ -7,7 +7,8 @@ from pygit2 import (
     Repository,
     GIT_SORT_TOPOLOGICAL,
     GIT_REF_OID,
-    discover_repository
+    discover_repository,
+    GitError
 )
 
 import subprocess
@@ -148,6 +149,18 @@ class Git():
             return None
 
         return Repository(path)
+
+    @staticmethod
+    def loadForBranch(repo, branch):
+        for wt in repo.list_worktrees():
+            # FIXME: seems pygit2 no way to get the worktree branch name
+            try:
+                wt_repo = Repository(repo.lookup_worktree(wt).path)
+                if wt_repo.head.shorthand == branch:
+                    return wt_repo
+            except GitError:
+                pass
+        return None
 
     @staticmethod
     def refs():

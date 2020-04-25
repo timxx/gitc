@@ -71,33 +71,40 @@ class LogsFetcher(QThread):
 
         hasLUC = False
         hasLCC = False
-        if not self._branch.startswith("origin/"):
-            hasLUC = len(repo.diff()) > 0
-            hasLCC = len(repo.diff("HEAD", cached=True)) > 0
 
-            if hasLCC:
-                lcc_cmit = Commit()
-                lcc_cmit.sha1 = Git.LCC_SHA1
-                lcc_cmit.comments = self._lccText
-                lcc_cmit.parents = []
-                lcc_cmit.children = None
+        branch = repo.branches[self._branch]
+        if branch.is_checked_out():
+            wt_repo = repo
+            if self._branch != repo.head.shorthand:
+                wt_repo = Git.loadForBranch(repo, self._branch)
 
-                commits.append(lcc_cmit)
+            # If no worktree repo, then do nothing with local changes
+            if wt_repo:
+                repo = wt_repo
 
-            if hasLUC:
-                luc_cmit = Commit()
-                luc_cmit.sha1 = Git.LUC_SHA1
-                luc_cmit.comments = self._lucText
-                luc_cmit.parents = [Git.LCC_SHA1] if hasLCC else []
-                luc_cmit.children = []
+                hasLUC = len(repo.diff()) > 0
+                hasLCC = len(repo.diff("HEAD", cached=True)) > 0
 
-                commits.insert(0, luc_cmit)
+                if hasLCC:
+                    lcc_cmit = Commit()
+                    lcc_cmit.sha1 = Git.LCC_SHA1
+                    lcc_cmit.comments = self._lccText
+                    lcc_cmit.parents = []
+                    lcc_cmit.children = None
+
+                    commits.append(lcc_cmit)
+
+                if hasLUC:
+                    luc_cmit = Commit()
+                    luc_cmit.sha1 = Git.LUC_SHA1
+                    luc_cmit.comments = self._lucText
+                    luc_cmit.parents = [Git.LCC_SHA1] if hasLCC else []
+                    luc_cmit.children = []
+
+                    commits.insert(0, luc_cmit)
 
         # TODO: it seems that repo.walk can cause GUI hangs, why???
-        for commit in repo.walk(
-                repo.branches[self._branch].target,
-                GIT_SORT_TOPOLOGICAL):
-
+        for commit in repo.walk(branch.target, GIT_SORT_TOPOLOGICAL):
             if self.isInterruptionRequested():
                 return
 
