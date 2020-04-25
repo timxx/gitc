@@ -132,10 +132,10 @@ class DiffFetcher(QThread):
 
                 lineItems.append(LineItem(TextLine.Diff, line))
                 self._row += 1
-        else:
-            # add an empty line
-            lineItems.append(LineItem(TextLine.Diff, ''))
-            self._row += 1
+
+        # add an empty line
+        lineItems.append(LineItem(TextLine.Diff, ''))
+        self._row += 1
 
         if not self.isInterruptionRequested():
             self.diffAvailable.emit(lineItems, fileItems)
@@ -179,6 +179,8 @@ class DiffFetcher(QThread):
                 diff = repo.diff()
             else:
                 diff = repo.diff(self._sha1 + "^", self._sha1)
+
+            diff.find_similar()
             for patch in diff:
                 self._parse(patch)
         except KeyError:
