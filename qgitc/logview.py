@@ -9,7 +9,6 @@ from pygit2 import GIT_SORT_TOPOLOGICAL
 
 from .common import *
 from .gitutils import *
-from .datafetcher import DataFetcher
 from .stylehelper import dpiScaled
 
 import re

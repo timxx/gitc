@@ -21,7 +21,6 @@ import os
 import sys
 import argparse
 import shlex
-import subprocess
 
 
 class FindSubmoduleThread(QThread):

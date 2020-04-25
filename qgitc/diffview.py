@@ -10,7 +10,6 @@ from pygit2 import Repository
 from .common import *
 from .gitutils import Git
 from .findwidget import FindWidget
-from .datafetcher import DataFetcher
 
 import re
 import bisect
