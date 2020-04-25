@@ -152,7 +152,20 @@ class Git():
 
     @staticmethod
     def loadForBranch(repo, branch):
-        for wt in repo.list_worktrees():
+        worktrees = repo.list_worktrees()
+        if not worktrees:
+            return None
+
+        # current repo is in worktree
+        index = repo.path.rfind(".git/worktrees/")
+        if index > 0 and os.path.basename(repo.path.rstrip('/')) in worktrees:
+            main_repo = Repository(repo.path[:index])
+            if main_repo.head.shorthand == branch:
+                return main_repo
+
+            return None
+
+        for wt in worktrees:
             # FIXME: seems pygit2 no way to get the worktree branch name
             try:
                 wt_repo = Repository(repo.lookup_worktree(wt).path)
