@@ -6,7 +6,7 @@ import io
 import os
 import sys
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 
 
 html_escape_table = {
@@ -64,9 +64,11 @@ class Commit():
         commit = cls()
 
         def timeStr(signature):
-            tzinfo = timezone(timedelta(minutes=signature.offset))
-            dt = datetime.fromtimestamp(float(signature.time), tzinfo)
-            return dt.strftime('%x %X %z')
+            # tzinfo = timezone(timedelta(minutes=signature.offset))
+            dt = datetime.fromtimestamp(float(signature.time))
+            return "%d-%02d-%02d %02d:%02d:%02d" % (
+                dt.year, dt.month, dt.day,
+                dt.hour, dt.minute, dt.second)
 
         def authorStr(author):
             return author.name + " <" + author.email + ">"

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from collections import defaultdict
-from datetime import datetime, timezone, timedelta
+from datetime import date
 
 from pygit2 import (
     Repository,
@@ -204,12 +204,11 @@ class Git():
     @staticmethod
     def commitSummary(sha1):
         commit = Git.repo.revparse_single(sha1)
-        tzinfo = timezone(timedelta(minutes=commit.author.offset))
-        dt = datetime.fromtimestamp(float(commit.author.time), tzinfo)
+        dt = date.fromtimestamp(float(commit.author.time))
 
         return {"sha1": commit.short_id,
                 "subject": commit.message.split('\n')[0],
-                "date": dt.strftime("%x"),
+                "date": "%d-%02d-%02d" % (dt.year, dt.month, dt.day),
                 "author": commit.author.name,
                 "email": commit.author.email}
 
