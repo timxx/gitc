@@ -78,7 +78,10 @@ class Commit():
         commit.author = authorStr(rawCommit.author)
         commit.authorDate = timeStr(rawCommit.author)
         commit.committer = authorStr(rawCommit.committer)
-        commit.committerDate = timeStr(rawCommit.committer)
+        if rawCommit.committer.time == rawCommit.author.time:
+            commit.committerDate = commit.authorDate
+        else:
+            commit.committerDate = timeStr(rawCommit.committer)
         commit.parents = []
         for id in rawCommit.parent_ids:
             commit.parents.append(id.hex)
