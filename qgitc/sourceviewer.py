@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
-from PySide2.QtWidgets import (
+from PySide6.QtWidgets import (
     QApplication)
-from PySide2.QtGui import (
+from PySide6.QtGui import (
     QFontMetrics,
     QTextOption)
-from PySide2.QtCore import (
+from PySide6.QtCore import (
     QEvent)
 
 from .textline import SourceTextLineBase
@@ -26,7 +26,7 @@ class SourceTextLine(SourceTextLineBase):
     def rehighlight(self):
         formats = self._commonHighlightFormats()
         if formats:
-            self._layout.setAdditionalFormats(formats)
+            self._layout.setFormats(formats)
 
 
 class SourceViewer(TextViewer):
@@ -73,10 +73,10 @@ class SourceViewer(TextViewer):
 
         fm = QFontMetrics(self._font)
         tabSize = settings.tabSize()
-        tabstopWidth = fm.width(' ') * tabSize
+        tabstopWidth = fm.horizontalAdvance(' ') * tabSize
 
         self._option = QTextOption()
-        self._option.setTabStop(tabstopWidth)
+        self._option.setTabStopDistance(tabstopWidth)
 
         if settings.showWhitespace():
             flags = self._option.flags()

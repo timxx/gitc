@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
-from PySide2.QtCore import *
-import PySide2
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
+from PySide6.QtCore import *
+import PySide6
 
 from .ui_gitview import *
 from .common import *

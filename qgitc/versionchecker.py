@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
-from PySide2.QtCore import (
+from PySide6.QtCore import (
     QObject,
     Signal,
     QJsonDocument)
-from PySide2.QtNetwork import (
+from PySide6.QtNetwork import (
     QNetworkAccessManager,
     QNetworkRequest,
     QNetworkReply)

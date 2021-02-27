@@ -23,7 +23,7 @@ A file conflict viewer for git
 
 ## Requirements
 
-- PySide2 >= 5.2.0
+- PySide6
 - git (command line)
 - chardet
 

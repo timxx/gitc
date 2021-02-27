@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from PySide2.QtWidgets import (
+from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
@@ -12,12 +12,12 @@ from PySide2.QtWidgets import (
     QMenu,
     QFrame,
     QMessageBox)
-from PySide2.QtGui import (
+from PySide6.QtGui import (
     QPainter,
     QFontMetrics,
     QColor,
     QPen)
-from PySide2.QtCore import (
+from PySide6.QtCore import (
     Qt,
     Signal,
     QRect,

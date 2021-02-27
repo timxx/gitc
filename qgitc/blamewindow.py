@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 
-from PySide2.QtWidgets import (
+from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QDialog)
 
-from PySide2.QtGui import (
+from PySide6.QtGui import (
     QKeySequence,
     QIcon)
-from PySide2.QtCore import (
+from PySide6.QtCore import (
     Qt)
 
 from .blameview import BlameView

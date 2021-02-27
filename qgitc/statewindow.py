@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-from PySide2.QtWidgets import (
+from PySide6.QtWidgets import (
     QMainWindow,
     QApplication)
-from PySide2.QtCore import Qt
+from PySide6.QtCore import Qt
 
 
 __all__ = ["StateWindow"]

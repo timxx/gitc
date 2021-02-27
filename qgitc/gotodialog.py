@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 
-from PySide2.QtWidgets import (
+from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QVBoxLayout,
     QLabel,
     QLineEdit)
 
-from PySide2.QtGui import (
+from PySide6.QtGui import (
     QIntValidator)
 
 

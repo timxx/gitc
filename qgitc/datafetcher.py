@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from PySide2.QtCore import *
+from PySide6.QtCore import *
 from .gitutils import Git
 
 

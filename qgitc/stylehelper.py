@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from PySide2.QtWidgets import QApplication
-from PySide2.QtCore import *
+from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import *
 import sys
 
 

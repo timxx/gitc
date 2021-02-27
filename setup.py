@@ -35,7 +35,7 @@ class BuildQt(Command):
             getattr(self, "compile_" + m)()
 
     def compile_ui(self):
-        uic_bin = find_executable("pyside2-uic") or find_executable("uic")
+        uic_bin = find_executable("uic-qt6") or find_executable("uic")
         if not uic_bin:
             raise DistutilsExecError("Missing uic")
 
@@ -120,7 +120,7 @@ setup(name="qgitc",
               "imgdiff=mergetool.imgdiff:main"
           ]
       },
-      install_requires=["PySide2>=5.2.0", "chardet"],
+      install_requires=["PySide6", "chardet"],
       classifiers=[
           "License :: OSI Approved :: Apache Software License",
           "Operating System :: POSIX",

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from PySide2.QtCore import Qt
-from PySide2.QtWidgets import (
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
     QStyle,
     QMessageBox)
 
@@ -92,7 +92,7 @@ def _move_center(window):
     window.setGeometry(QStyle.alignedRect(
         Qt.LeftToRight, Qt.AlignCenter,
         window.size(),
-        qApp.desktop().availableGeometry()))
+        qApp.primaryScreen().availableGeometry()))
 
 
 def _init_gui():

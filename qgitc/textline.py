@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
-from PySide2.QtGui import (
+from PySide6.QtGui import (
     QTextCharFormat,
     QTextLayout,
     QTextOption,
     QFontMetrics)
-from PySide2.QtCore import (
+from PySide6.QtCore import (
     Qt,
     QRectF)
 
@@ -224,7 +224,7 @@ class TextLine():
             return
         formats = self.createLinksFormats()
         if formats:
-            self._layout.setAdditionalFormats(formats)
+            self._layout.setFormats(formats)
 
     def setCustomLinkPatterns(self, patterns):
         self._links.clear()
@@ -325,7 +325,7 @@ class SourceTextLineBase(TextLine):
     def _updateCRWidth(self):
         if self._hasCR and self._showWhitespaces():
             fm = QFontMetrics(self._font)
-            self._crWidth = fm.width(cr_char)
+            self._crWidth = fm.horizontalAdvance(cr_char)
         else:
             self._crWidth = 0
 

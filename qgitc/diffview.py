@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
-from PySide2.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
+from PySide6.QtCore import *
 
 from .common import *
 from .gitutils import Git
@@ -288,7 +288,7 @@ class DiffView(QWidget):
 
         listViewWrapper = QWidget(self)
         vbox = QVBoxLayout(listViewWrapper)
-        vbox.setMargin(0)
+        vbox.setContentsMargins(0, 0, 0, 0)
         vbox.addWidget(fileListFilter)
         vbox.addWidget(self.fileListView)
 
@@ -655,7 +655,7 @@ class DiffTextLine(SourceTextLineBase):
             formats.append(createFormatRange(0, len(text), tcFormat))
 
         if formats:
-            self._layout.setAdditionalFormats(formats)
+            self._layout.setFormats(formats)
 
 
 class InfoTextLine(TextLine):
@@ -684,7 +684,7 @@ class InfoTextLine(TextLine):
         formats = []
         formats.append(fmtRg)
 
-        self._layout.setAdditionalFormats(formats)
+        self._layout.setFormats(formats)
 
 
 class AuthorTextLine(LinkTextLine):

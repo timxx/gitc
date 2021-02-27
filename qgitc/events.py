@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from PySide2.QtCore import QEvent
+from PySide6.QtCore import QEvent
 
 
 class BlameEvent(QEvent):

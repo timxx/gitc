@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
-from PySide2.QtWidgets import (
+from PySide6.QtWidgets import (
     QAbstractScrollArea,
     QApplication,
     QMenu,
     QScrollBar)
-from PySide2.QtGui import (
+from PySide6.QtGui import (
     QPainter,
     QFontMetrics,
     QTextCharFormat,
@@ -14,7 +14,7 @@ from PySide2.QtGui import (
     QColor,
     QKeySequence,
     QIcon)
-from PySide2.QtCore import (
+from PySide6.QtCore import (
     Qt,
     QRect,
     QRectF,
